@@ -3,6 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Send, Volume2, VolumeX, Bot, User, Sparkles, Loader2, ArrowRight } from 'lucide-react';
 import { Task } from '@/lib/types';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Message {
   id: string;
@@ -92,9 +97,12 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
 
-    // Prefer an English voice
     const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find((v) => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
+    const englishVoice = voices.find(
+      (v) =>
+        v.lang.startsWith('en') &&
+        (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha'))
+    );
     if (englishVoice) {
       utterance.voice = englishVoice;
     }
@@ -136,7 +144,6 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
     setInput('');
 
     try {
-      // Build context for disambiguation if active
       const context = ambiguousCandidates?.length
         ? { lastAmbiguousCandidates: ambiguousCandidates }
         : undefined;
@@ -147,12 +154,6 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
     }
   };
 
-  // When parent receives response, this method can append assistant message
-  useEffect(() => {
-    // Listen for custom event or props update if necessary
-  }, []);
-
-  // Expose append assistant message
   const addAssistantMessage = (reply: string, isAmbiguous = false) => {
     const assistantMessage: Message = {
       id: `assistant-${Date.now()}`,
@@ -165,61 +166,56 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
     speak(reply);
   };
 
-  // Expose this via custom handler or forwardRef if needed
   (AlexaSimulator as any).addAssistantMessage = addAssistantMessage;
 
   return (
-    <div className="flex flex-col h-[740px] bg-slate-900/90 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
+    <Card className="flex flex-col h-[740px] border-border bg-card/80 shadow-2xl overflow-hidden p-0 gap-0">
       {/* Header Bar */}
-      <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-            <Bot className="w-4 h-4" />
-          </div>
+          <Avatar className="w-8 h-8 border border-cyan-500/40 bg-cyan-500/20 text-cyan-400">
+            <AvatarFallback className="bg-transparent text-cyan-400">
+              <Bot className="w-4 h-4" />
+            </AvatarFallback>
+          </Avatar>
           <div>
-            <h2 className="text-sm font-semibold text-white flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
               Alexa+ Voice Simulator
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
             </h2>
-            <span className="text-[11px] text-slate-400">Natural voice & text assistant</span>
+            <span className="text-[11px] text-muted-foreground">Natural voice & text assistant</span>
           </div>
         </div>
 
         {/* Audio Output Toggle */}
-        <button
+        <Button
+          variant={speechSynthesisEnabled ? 'secondary' : 'ghost'}
+          size="icon"
           onClick={() => setSpeechSynthesisEnabled(!speechSynthesisEnabled)}
           title={speechSynthesisEnabled ? 'Mute spoken audio' : 'Enable spoken audio'}
           aria-label={speechSynthesisEnabled ? 'Mute spoken audio' : 'Enable spoken audio'}
-          className={`p-2 rounded-lg text-xs font-medium transition-colors ${
-            speechSynthesisEnabled
-              ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/30'
-              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-          }`}
+          className={speechSynthesisEnabled ? 'text-cyan-400 border border-cyan-500/30' : 'text-muted-foreground'}
         >
           {speechSynthesisEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-        </button>
+        </Button>
       </div>
 
       {/* Suggested Prompts Pills */}
-      <div className="px-3 py-2 bg-slate-950/40 border-b border-slate-800/80 overflow-x-auto flex gap-1.5 scrollbar-thin">
+      <div className="px-3 py-2 bg-muted/30 border-b border-border overflow-x-auto flex gap-1.5">
         {SAMPLE_PROMPTS.map((prompt) => (
-          <button
+          <Badge
             key={prompt}
+            variant="outline"
             onClick={() => handleSend(prompt)}
-            disabled={isLoading}
-            className="text-xs whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-cyan-950 hover:text-cyan-300 hover:border-cyan-700/60 text-slate-300 border border-slate-700/60 transition-all flex items-center gap-1"
+            className="cursor-pointer hover:bg-cyan-950/60 hover:text-cyan-300 hover:border-cyan-700/60 transition-all font-normal whitespace-nowrap text-xs py-1 px-2.5"
           >
-            <span>{prompt}</span>
-          </button>
+            {prompt}
+          </Badge>
         ))}
       </div>
 
       {/* Chat Messages Transcript */}
-      <div
-        className="flex-1 overflow-y-auto p-4 space-y-3.5"
-        role="log"
-        aria-live="polite"
-      >
+      <div className="flex-1 overflow-y-auto p-4 space-y-3.5" role="log" aria-live="polite">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -228,24 +224,24 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
             <div className="flex items-center space-x-1.5 mb-1 px-1">
               {msg.sender === 'user' ? (
                 <>
-                  <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
-                  <span className="text-[11px] font-medium text-slate-300">You</span>
-                  <User className="w-3 h-3 text-slate-400" />
+                  <span className="text-[10px] text-muted-foreground">{msg.timestamp}</span>
+                  <span className="text-[11px] font-medium text-foreground">You</span>
+                  <User className="w-3 h-3 text-muted-foreground" />
                 </>
               ) : (
                 <>
                   <Bot className="w-3 h-3 text-cyan-400" />
                   <span className="text-[11px] font-medium text-cyan-300">Alexa+</span>
-                  <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
+                  <span className="text-[10px] text-muted-foreground">{msg.timestamp}</span>
                 </>
               )}
             </div>
 
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-md ${
+              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
                 msg.sender === 'user'
-                  ? 'bg-blue-600 text-white rounded-br-none'
-                  : 'bg-slate-800/90 text-slate-100 border border-slate-700/60 rounded-bl-none ring-1 ring-cyan-500/10'
+                  ? 'bg-primary text-primary-foreground rounded-br-none'
+                  : 'bg-muted/80 text-foreground border border-border rounded-bl-none ring-1 ring-cyan-500/10'
               }`}
             >
               <p>{msg.text}</p>
@@ -253,7 +249,7 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
           </div>
         ))}
 
-        {/* Ambiguity Quick Selection Buttons */}
+        {/* Ambiguity Quick Selection */}
         {ambiguousCandidates && ambiguousCandidates.length > 0 && (
           <div className="p-3 my-2 rounded-xl bg-amber-950/40 border border-amber-600/40 space-y-2">
             <p className="text-xs font-semibold text-amber-300">
@@ -261,18 +257,20 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
             </p>
             <div className="flex flex-col gap-1.5">
               {ambiguousCandidates.map((c) => (
-                <button
+                <Button
                   key={c.id}
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleSend(`Complete #${c.id}`)}
-                  className="text-left text-xs px-3 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/60 text-amber-200 border border-amber-700/50 flex items-center justify-between"
+                  className="w-full justify-between text-xs bg-amber-900/30 hover:bg-amber-900/60 text-amber-200 border-amber-700/50"
                 >
                   <span>
                     #{c.id}: <strong>{c.title}</strong>
                   </span>
-                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-950">
+                  <Badge variant="secondary" className="text-[10px] uppercase font-mono">
                     {c.priority}
-                  </span>
-                </button>
+                  </Badge>
+                </Button>
               ))}
             </div>
           </div>
@@ -281,10 +279,12 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
         {/* Loading Indicator */}
         {isLoading && (
           <div className="flex items-start space-x-2">
-            <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            </div>
-            <div className="px-3.5 py-2 rounded-2xl bg-slate-800/80 border border-slate-700/50 rounded-bl-none flex items-center space-x-2">
+            <Avatar className="w-6 h-6 border border-cyan-500/40 bg-cyan-500/20 text-cyan-400">
+              <AvatarFallback className="bg-transparent text-cyan-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="px-3.5 py-2 rounded-2xl bg-muted/80 border border-border rounded-bl-none flex items-center space-x-2">
               <span className="text-xs text-cyan-300 font-medium">Running MCP tool calls...</span>
               <span className="flex space-x-1">
                 <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -300,22 +300,19 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
 
       {/* Listening Waveform Banner */}
       {isListening && (
-        <div className="px-4 py-2 bg-cyan-950/60 border-t border-cyan-700/50 flex items-center justify-between animate-pulse">
+        <div className="px-4 py-2 bg-cyan-950/80 border-t border-cyan-700/50 flex items-center justify-between animate-pulse">
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
             <span className="text-xs font-semibold text-cyan-300">Listening to voice input... speak now</span>
           </div>
-          <button
-            onClick={handleToggleMic}
-            className="text-xs px-2 py-0.5 rounded bg-cyan-800/80 text-cyan-200 hover:bg-cyan-700"
-          >
+          <Button variant="ghost" size="sm" onClick={handleToggleMic} className="text-xs h-7 px-2 text-cyan-200">
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Input Field and Controls */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/80">
+      <div className="p-3 border-t border-border bg-card">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -324,41 +321,40 @@ export const AlexaSimulator: React.FC<AlexaSimulatorProps> = ({
           className="flex items-center space-x-2"
         >
           {/* Mic Button */}
-          <button
+          <Button
             type="button"
+            variant={isListening ? 'destructive' : 'secondary'}
+            size="icon"
             onClick={handleToggleMic}
             title={isListening ? 'Stop listening' : 'Start voice input (Web Speech API)'}
             aria-label={isListening ? 'Stop listening' : 'Start voice input'}
-            className={`p-2.5 rounded-xl transition-all ${
-              isListening
-                ? 'bg-rose-600 text-white animate-pulse shadow-lg shadow-rose-600/30'
-                : 'bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700'
-            }`}
+            className={isListening ? 'animate-pulse shadow-lg shadow-rose-600/30' : 'text-cyan-400'}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
+          </Button>
 
           {/* Text Input */}
-          <input
+          <Input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Say or type a command... (e.g. 'Plan my day')"
-            className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+            className="flex-1 bg-background"
             disabled={isLoading}
           />
 
           {/* Send Button */}
-          <button
+          <Button
             type="submit"
             disabled={!input.trim() || isLoading}
             aria-label="Send utterance"
-            className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-semibold transition-all shadow-md shadow-cyan-500/20"
+            size="icon"
+            className="bg-cyan-500 hover:bg-cyan-400 text-slate-950"
           >
-            <Send className="w-5 h-5" />
-          </button>
+            <Send className="w-4 h-4" />
+          </Button>
         </form>
       </div>
-    </div>
+    </Card>
   );
 };
