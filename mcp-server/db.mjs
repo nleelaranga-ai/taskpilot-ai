@@ -1,15 +1,34 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const DEFAULT_DB_PATH = path.join(PROJECT_ROOT, 'data', 'taskpilot.db');
 
 let dbInstance = null;
+let currentDbPath = null;
 
 export function getDb(dbPath = null) {
-  if (dbInstance && !dbPath) {
+  const resolvedPath = dbPath
+    ? path.resolve(process.cwd(), dbPath)
+    : process.env.TASKPILOT_DB
+    ? path.resolve(PROJECT_ROOT, process.env.TASKPILOT_DB)
+    : DEFAULT_DB_PATH;
+
+  if (dbInstance && currentDbPath === resolvedPath) {
     return dbInstance;
   }
 
-  const resolvedPath = dbPath || process.env.TASKPILOT_DB || path.join(process.cwd(), 'data', 'taskpilot.db');
+  if (dbInstance && currentDbPath !== resolvedPath) {
+    try {
+      dbInstance.close();
+    } catch {}
+    dbInstance = null;
+  }
+
   const dir = path.dirname(resolvedPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -30,9 +49,8 @@ export function getDb(dbPath = null) {
     );
   `);
 
-  if (!dbPath) {
-    dbInstance = db;
-  }
+  dbInstance = db;
+  currentDbPath = resolvedPath;
   return db;
 }
 
@@ -111,7 +129,6 @@ export function completeTask({ id = null, title = null }, db = null) {
     `).all(searchPattern);
 
     if (openMatches.length === 0) {
-      // Check if it was already completed
       const doneMatches = conn.prepare(`
         SELECT * FROM tasks 
         WHERE LOWER(title) LIKE ? AND status = 'done'
@@ -144,7 +161,6 @@ export function completeTask({ id = null, title = null }, db = null) {
       return { task: updated, isError: false };
     }
 
-    // Ambiguous: multiple matches found
     return {
       isError: true,
       ambiguous: true,
@@ -166,7 +182,10 @@ export function clearTasks(db = null) {
 
 export function closeDb() {
   if (dbInstance) {
-    dbInstance.close();
+    try {
+      dbInstance.close();
+    } catch {}
     dbInstance = null;
+    currentDbPath = null;
   }
 }

@@ -255,6 +255,7 @@ export function planWithRules(utterance: string, context?: Record<string, any>):
       .replace(/\b(on my list|in my tasks|to my list|to the list|with|as)\b/gi, '')
       .replace(/^to\s+/i, '')
       .replace(/^(a|an)\s+/i, '')
+      .replace(/[.,!?;:]+$/g, '')
       .trim();
 
     if (remainder.length > 0) {

@@ -56,3 +56,24 @@ export interface ChatResponse {
   trace: TraceItem[];
   ambiguousCandidates?: Task[];
 }
+
+export type NavTab = 'workspace' | 'mission' | 'tasks' | 'inspector' | 'settings';
+
+export interface ProposedAction {
+  id: string;
+  action: 'create' | 'complete';
+  title: string;
+  priority: Priority;
+  due: string | null;
+  rationale: string;
+  timeEstimate: string;
+  selected: boolean;
+}
+
+export interface MissionPlan {
+  missionTitle: string;
+  goal: string;
+  reasoning: string;
+  proposedActions: ProposedAction[];
+  clarifications: string[];
+}

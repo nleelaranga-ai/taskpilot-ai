@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
-import { AlexaSimulator } from '@/components/AlexaSimulator';
+import { WorkspaceOverview } from '@/components/WorkspaceOverview';
+import { DailyMissionView } from '@/components/DailyMissionView';
 import { TaskBoard } from '@/components/TaskBoard';
 import { ToolExecutionHistory } from '@/components/ToolExecutionHistory';
-import { McpToolSchema, Task, TraceItem } from '@/lib/types';
+import { SettingsView } from '@/components/SettingsView';
+import { McpToolSchema, NavTab, Task, TraceItem } from '@/lib/types';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<NavTab>('workspace');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [traces, setTraces] = useState<TraceItem[]>([]);
   const [discoveredTools, setDiscoveredTools] = useState<McpToolSchema[]>([]);
@@ -15,7 +19,6 @@ export default function Home() {
   const [isMcpConnected, setIsMcpConnected] = useState<boolean>(false);
   const [plannerType, setPlannerType] = useState<'rule-based' | 'bedrock'>('rule-based');
   const [ambiguousCandidates, setAmbiguousCandidates] = useState<Task[] | undefined>(undefined);
-  const simulatorRef = useRef<any>(null);
 
   // Cold Start: initialize, tools/list, and list_tasks
   const runColdStart = async () => {
@@ -33,7 +36,7 @@ export default function Home() {
         }
       }
 
-      // 2. Discover MCP tools
+      // 2. Discover MCP tools via tools/list
       const toolsRes = await fetch('/api/tools');
       if (toolsRes.ok) {
         const toolsData = await toolsRes.json();
@@ -43,7 +46,7 @@ export default function Home() {
         }
       }
 
-      // 3. Initial list of tasks from MCP server
+      // 3. Initial list of tasks from MCP server (always query 'all' for complete board state)
       const tasksRes = await fetch('/api/tasks?status=all');
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
@@ -65,6 +68,26 @@ export default function Home() {
   useEffect(() => {
     runColdStart();
   }, []);
+
+  // Fetch fresh tasks list directly from MCP server
+  const refreshTasks = async () => {
+    try {
+      const tasksRes = await fetch('/api/tasks?status=all');
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setTasks(tasksData.tasks || []);
+        if (tasksData.trace) {
+          setTraces((prev) => [tasksData.trace, ...prev]);
+        }
+      }
+    } catch (err) {
+      console.error('Refresh tasks error:', err);
+    }
+  };
+
+  const addTraces = (newTraces: TraceItem[]) => {
+    setTraces((prev) => [...newTraces, ...prev]);
+  };
 
   // Handle user utterance
   const handleSendMessage = async (utterance: string, context?: any) => {
@@ -93,25 +116,9 @@ export default function Home() {
         if (data.ambiguousCandidates) {
           setAmbiguousCandidates(data.ambiguousCandidates);
         }
-
-        // Deliver assistant message to simulator
-        if (typeof (AlexaSimulator as any).addAssistantMessage === 'function') {
-          (AlexaSimulator as any).addAssistantMessage(data.reply, Boolean(data.ambiguousCandidates));
-        }
-      } else {
-        if (typeof (AlexaSimulator as any).addAssistantMessage === 'function') {
-          (AlexaSimulator as any).addAssistantMessage(
-            `Sorry, I encountered an error: ${data.details || data.error || 'Unknown error'}`
-          );
-        }
       }
     } catch (err: any) {
       console.error('Chat error:', err);
-      if (typeof (AlexaSimulator as any).addAssistantMessage === 'function') {
-        (AlexaSimulator as any).addAssistantMessage(
-          `Connection error: could not communicate with the TaskPilot backend.`
-        );
-      }
     } finally {
       setIsLoading(false);
     }
@@ -132,15 +139,7 @@ export default function Home() {
         setTraces((prev) => [data.trace, ...prev]);
       }
 
-      // Refresh tasks
-      const tasksRes = await fetch('/api/tasks?status=all');
-      if (tasksRes.ok) {
-        const tasksData = await tasksRes.json();
-        setTasks(tasksData.tasks || []);
-        if (tasksData.trace) {
-          setTraces((prev) => [tasksData.trace, ...prev]);
-        }
-      }
+      await refreshTasks();
     } catch (err) {
       console.error('Complete task error:', err);
     } finally {
@@ -165,69 +164,71 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-cyan-500 selection:text-slate-950">
-      <Header
+    <div className="min-h-screen flex bg-background text-foreground selection:bg-cyan-500 selection:text-slate-950">
+      {/* Premium Sidebar Navigation */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        openTasksCount={tasks.filter((t) => t.status === 'open').length}
+        totalTasksCount={tasks.length}
         isMcpConnected={isMcpConnected}
-        plannerType={plannerType}
-        taskCount={tasks.length}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
-        {/* Hackathon Route & Tech Badge Banner */}
-        <div className="mb-4 p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center space-x-2 text-slate-300">
-            <span className="px-2 py-0.5 rounded font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
-              Alexa+ Track
-            </span>
-            <span>
-              Route B Simulation powered by real Route A self-hosted MCP Server over Streamable HTTP (spec 2025-11-25)
-            </span>
-          </div>
-          <div className="flex items-center space-x-2 text-slate-400 font-mono text-[11px]">
-            <span>Server: 127.0.0.1:3333/mcp</span>
-            <span>•</span>
-            <span>Web: localhost:3000</span>
-          </div>
-        </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header
+          isMcpConnected={isMcpConnected}
+          plannerType={plannerType}
+          taskCount={tasks.length}
+        />
 
-        {/* 3-Panel Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Panel 1: Alexa+ Voice Simulator */}
-          <section aria-label="Alexa+ Voice Simulator Panel">
-            <AlexaSimulator
+        <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 lg:p-8">
+          {activeTab === 'workspace' && (
+            <WorkspaceOverview
+              tasks={tasks}
+              traces={traces}
               onSendMessage={handleSendMessage}
+              onCompleteTask={handleCompleteTask}
+              onNavigateToTasks={() => setActiveTab('tasks')}
               isLoading={isLoading}
               ambiguousCandidates={ambiguousCandidates}
             />
-          </section>
+          )}
 
-          {/* Panel 2: Live Task Board */}
-          <section aria-label="Live Task Board Panel">
+          {activeTab === 'mission' && (
+            <DailyMissionView
+              onRefreshTasks={refreshTasks}
+              onAddTraces={addTraces}
+              existingTasks={tasks}
+            />
+          )}
+
+          {activeTab === 'tasks' && (
             <TaskBoard
               tasks={tasks}
               onCompleteTask={handleCompleteTask}
               isLoading={isLoading}
             />
-          </section>
+          )}
 
-          {/* Panel 3: Tool Execution Log & MCP Protocol Inspector */}
-          <section aria-label="MCP Protocol Execution History Panel">
+          {activeTab === 'inspector' && (
             <ToolExecutionHistory
               traces={traces}
               discoveredTools={discoveredTools}
               onRefreshTools={handleRefreshTools}
               isLoading={isLoading}
             />
-          </section>
-        </div>
-      </main>
+          )}
 
-      <footer className="border-t border-slate-900 bg-slate-950/80 py-4 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>TaskPilot AI • Amazon Build, Ship, Shape Hackathon (Alexa+ Track)</span>
-          <span className="font-mono text-slate-600">MIT Licensed • 100% Standalone MCP & Next.js</span>
-        </div>
-      </footer>
+          {activeTab === 'settings' && (
+            <SettingsView
+              isMcpConnected={isMcpConnected}
+              plannerType={plannerType}
+              taskCount={tasks.length}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
