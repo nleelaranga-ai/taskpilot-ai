@@ -1,3 +1,5 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { McpToolSchema, Task, TraceItem } from './types';
 
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://127.0.0.1:3333/mcp';
@@ -13,60 +15,72 @@ export class TaskPilotMcpClient {
   }
 
   /**
-   * Sends a low-level JSON-RPC 2.0 POST request over Streamable HTTP.
+   * Helper to create a connected Client with StreamableHTTPClientTransport
    */
-  async sendJsonRpc(method: string, params: Record<string, unknown> = {}, stepName?: string): Promise<{
-    data: any;
+  private async createConnectedClient(): Promise<{
+    client: Client;
+    transport: StreamableHTTPClientTransport;
+  }> {
+    const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl), {
+      requestInit: {
+        headers: {
+          'Origin': 'http://localhost:3000',
+        },
+      },
+    });
+
+    const client = new Client(
+      {
+        name: 'taskpilot-web-client',
+        version: '1.0.0',
+      },
+      {
+        capabilities: {},
+      }
+    );
+
+    await client.connect(transport);
+    return { client, transport };
+  }
+
+  /**
+   * Performs initialize negotiation using official StreamableHTTPClientTransport
+   */
+  async initialize(): Promise<{
+    serverInfo: any;
+    protocolVersion: string;
     trace: TraceItem;
   }> {
     const id = rpcCounter++;
-    const requestPayload = {
-      jsonrpc: '2.0',
-      id,
-      method,
-      params,
-    };
-
     const startTime = Date.now();
-    let responseData: any = null;
+    let serverInfo: any = {};
     let ok = false;
+    let responseData: any = null;
 
     try {
-      const res = await fetch(this.serverUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
-          'Origin': 'http://localhost:3000',
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      const text = await res.text();
-      try {
-        responseData = JSON.parse(text);
-      } catch {
-        responseData = { rawText: text };
-      }
-
-      ok = res.ok && !responseData.error;
-    } catch (err: any) {
+      const { client, transport } = await this.createConnectedClient();
+      serverInfo = client.getServerVersion() || { name: 'taskpilot-mcp-server', version: '1.0.0' };
+      ok = true;
       responseData = {
-        error: {
-          code: -32000,
-          message: err.message || 'Connection to MCP server failed',
-        },
+        protocolVersion: PROTOCOL_VERSION,
+        serverInfo,
+        capabilities: client.getServerCapabilities(),
       };
+      await transport.close();
+    } catch (err: any) {
+      responseData = { error: { message: err.message } };
       ok = false;
     }
 
     const elapsedMs = Date.now() - startTime;
-
     const trace: TraceItem = {
       id: `trace-${Date.now()}-${id}`,
-      step: stepName || method,
-      method,
-      request: requestPayload,
+      step: 'initialize',
+      method: 'initialize',
+      request: {
+        protocolVersion: PROTOCOL_VERSION,
+        clientInfo: { name: 'taskpilot-web-client', version: '1.0.0' },
+      },
       response: responseData,
       ms: elapsedMs,
       ok,
@@ -74,77 +88,107 @@ export class TaskPilotMcpClient {
       protocolVersion: PROTOCOL_VERSION,
     };
 
-    return { data: responseData, trace };
+    return { serverInfo, protocolVersion: PROTOCOL_VERSION, trace };
   }
 
   /**
-   * Initializes session and protocol negotiation (spec 2025-11-25)
-   */
-  async initialize(): Promise<{
-    serverInfo: any;
-    protocolVersion: string;
-    trace: TraceItem;
-  }> {
-    const { data, trace } = await this.sendJsonRpc('initialize', {
-      protocolVersion: PROTOCOL_VERSION,
-      capabilities: {},
-      clientInfo: {
-        name: 'taskpilot-web-client',
-        version: '1.0.0',
-      },
-    }, 'initialize');
-
-    return {
-      serverInfo: data?.result?.serverInfo || {},
-      protocolVersion: data?.result?.protocolVersion || PROTOCOL_VERSION,
-      trace,
-    };
-  }
-
-  /**
-   * Discovers tools from the MCP server at runtime
+   * Discovers tools from the MCP server at runtime via tools/list
    */
   async listTools(): Promise<{
     tools: McpToolSchema[];
     trace: TraceItem;
   }> {
-    const { data, trace } = await this.sendJsonRpc('tools/list', {}, 'tools/list');
-    const tools: McpToolSchema[] = data?.result?.tools || [];
+    const id = rpcCounter++;
+    const startTime = Date.now();
+    let tools: McpToolSchema[] = [];
+    let ok = false;
+    let responseData: any = null;
+
+    try {
+      const { client, transport } = await this.createConnectedClient();
+      const listResult = await client.listTools();
+      tools = (listResult.tools as any) || [];
+      ok = true;
+      responseData = { tools, count: tools.length };
+      await transport.close();
+    } catch (err: any) {
+      responseData = { error: { message: err.message } };
+      ok = false;
+    }
+
+    const elapsedMs = Date.now() - startTime;
+    const trace: TraceItem = {
+      id: `trace-${Date.now()}-${id}`,
+      step: 'tools/list',
+      method: 'tools/list',
+      request: {},
+      response: responseData,
+      ms: elapsedMs,
+      ok,
+      timestamp: new Date().toISOString(),
+      protocolVersion: PROTOCOL_VERSION,
+    };
+
     return { tools, trace };
   }
 
   /**
-   * Executes a tool call on the MCP server
+   * Executes a tool call on the MCP server via StreamableHTTPClientTransport
    */
   async callTool(name: string, args: Record<string, unknown> = {}): Promise<{
     result: any;
     isError: boolean;
     trace: TraceItem;
   }> {
-    const { data, trace } = await this.sendJsonRpc('tools/call', {
-      name,
-      arguments: args,
-    }, `tools/call:${name}`);
+    const id = rpcCounter++;
+    const startTime = Date.now();
+    let resultPayload: any = null;
+    let isError = false;
+    let ok = false;
 
-    const result = data?.result;
-    const isError = Boolean(result?.isError || data?.error);
+    try {
+      const { client, transport } = await this.createConnectedClient();
+      const callResult: any = await client.callTool({
+        name,
+        arguments: args,
+      });
 
-    let parsedContent: any = null;
-    if (result?.structuredContent) {
-      parsedContent = result.structuredContent;
-    } else if (result?.content?.[0]?.text) {
-      try {
-        parsedContent = JSON.parse(result.content[0].text);
-      } catch {
-        parsedContent = result.content[0].text;
+      isError = Boolean(callResult.isError);
+      ok = !isError;
+
+      if (callResult.structuredContent) {
+        resultPayload = callResult.structuredContent;
+      } else if (callResult.content?.[0]?.text) {
+        try {
+          resultPayload = JSON.parse(callResult.content[0].text);
+        } catch {
+          resultPayload = callResult.content[0].text;
+        }
+      } else {
+        resultPayload = callResult;
       }
+
+      await transport.close();
+    } catch (err: any) {
+      resultPayload = { isError: true, message: err.message };
+      isError = true;
+      ok = false;
     }
 
-    return {
-      result: parsedContent || result,
-      isError,
-      trace,
+    const elapsedMs = Date.now() - startTime;
+    const trace: TraceItem = {
+      id: `trace-${Date.now()}-${id}`,
+      step: `tools/call:${name}`,
+      method: 'tools/call',
+      request: { name, arguments: args },
+      response: resultPayload,
+      ms: elapsedMs,
+      ok,
+      timestamp: new Date().toISOString(),
+      protocolVersion: PROTOCOL_VERSION,
     };
+
+    return { result: resultPayload, isError, trace };
   }
 
   /**

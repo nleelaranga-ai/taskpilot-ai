@@ -11,9 +11,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node mcp-server/test-e2e.mjs && npx tsx tests/planner.test.ts",
+    "test": "node mcp-server/test-e2e.mjs && npx tsx tests/planner.test.ts && npx tsx tests/api-e2e.test.ts",
     "test:mcp": "node mcp-server/test-e2e.mjs",
-    "test:planner": "npx tsx tests/planner.test.ts"
+    "test:planner": "npx tsx tests/planner.test.ts",
+    "test:client": "npx tsx tests/api-e2e.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",
