@@ -5,9 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node mcp-server/server.mjs\" \"npx next dev -p 3002\"",
+    "dev": "concurrently \"node mcp-server/server.mjs\" \"npx next dev -p 3000\"",
     "dev:mcp": "node mcp-server/server.mjs",
-    "dev:web": "npx next dev -p 3002",
+    "dev:web": "npx next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "start:mcp": "node mcp-server/server.mjs",
