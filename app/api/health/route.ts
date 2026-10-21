@@ -6,7 +6,16 @@ const MCP_HOST = process.env.MCP_HOST || '127.0.0.1';
 
 export async function GET() {
   try {
-    const healthUrl = `http://${MCP_HOST}:${MCP_PORT}/health`;
+    const mcpUrlStr = process.env.TASKPILOT_MCP_URL || process.env.MCP_SERVER_URL || `http://${MCP_HOST}:${MCP_PORT}/mcp`;
+    let healthUrl: string;
+    try {
+      const url = new URL(mcpUrlStr);
+      url.pathname = '/health';
+      healthUrl = url.toString();
+    } catch {
+      healthUrl = `http://${MCP_HOST}:${MCP_PORT}/health`;
+    }
+
     const res = await fetch(healthUrl, { method: 'GET' });
     const mcpHealth = await res.json();
 
