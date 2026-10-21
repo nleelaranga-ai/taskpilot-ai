@@ -1,80 +1,79 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Radio, Database, ShieldCheck, Cpu } from 'lucide-react';
+import { Radio, Terminal, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
   isMcpConnected: boolean;
   plannerType: 'rule-based' | 'bedrock';
   taskCount: number;
+  openInspector?: () => void;
+  openCount?: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isMcpConnected, plannerType, taskCount }) => {
+export const Header: React.FC<HeaderProps> = ({
+  isMcpConnected,
+  plannerType,
+  taskCount,
+  openInspector,
+  openCount = 0,
+}) => {
   return (
-    <header className="border-b border-border bg-card/60 backdrop-blur-md sticky top-0 z-50 px-4 py-3">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <header className="border-b border-border bg-card/90 backdrop-blur sticky top-0 z-40 px-4 md:px-6 py-3 transition-colors">
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+        {/* Brand & Context */}
         <div className="flex items-center space-x-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="absolute -bottom-1 -right-1 flex h-3 w-3">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  isMcpConnected ? 'bg-cyan-400' : 'bg-rose-400'
-                }`}
-              ></span>
-              <span
-                className={`relative inline-flex rounded-full h-3 w-3 ${
-                  isMcpConnected ? 'bg-cyan-500' : 'bg-rose-500'
-                }`}
-              ></span>
-            </span>
+          <div className="w-8 h-8 rounded-md bg-stone-900 text-stone-50 flex items-center justify-center font-bold text-sm tracking-tight shadow-xs">
+            TP
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span className="font-semibold text-foreground tracking-tight text-base">
                 TaskPilot AI
-                <Badge variant="outline" className="text-cyan-400 border-cyan-800 bg-cyan-950/50">
-                  Alexa+ Simulation
-                </Badge>
-              </h1>
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium border border-border">
+                Alexa+ Simulation
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Voice-style task manager powered by Streamable HTTP Model Context Protocol (MCP) & SQLite
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              Self-hosted Streamable HTTP MCP Server & SQLite WAL
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* MCP Protocol Badge */}
-          <Badge variant="secondary" className="gap-1.5 py-1 px-2.5 font-mono">
-            <Radio className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-muted-foreground">MCP Protocol:</span>
-            <span className="text-cyan-300 font-bold">2025-11-25</span>
-          </Badge>
+        {/* Right Status Badges & Quick Controls */}
+        <div className="flex items-center space-x-3">
+          {/* Connection Status Indicator */}
+          <div className="flex items-center space-x-2 text-xs text-muted-foreground bg-secondary/80 px-2.5 py-1 rounded-md border border-border font-medium">
+            <span className="flex h-2 w-2 relative">
+              {isMcpConnected && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isMcpConnected ? 'bg-emerald-600' : 'bg-rose-500'
+                }`}
+              ></span>
+            </span>
+            <span className="text-foreground">
+              {isMcpConnected ? 'MCP 2025-11-25' : 'MCP Disconnected'}
+            </span>
+          </div>
 
-          {/* Transport Badge */}
-          <Badge variant="secondary" className="gap-1.5 py-1 px-2.5 font-mono">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-muted-foreground">Transport:</span>
-            <span className="text-emerald-300 font-bold">Streamable HTTP</span>
-          </Badge>
-
-          {/* SQLite WAL Badge */}
-          <Badge variant="secondary" className="gap-1.5 py-1 px-2.5 font-mono">
-            <Database className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-muted-foreground">Store:</span>
-            <span className="text-amber-300 font-bold">SQLite WAL</span>
-          </Badge>
-
-          {/* Active Planner */}
-          <Badge variant="secondary" className="gap-1.5 py-1 px-2.5">
-            <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-muted-foreground">Planner:</span>
-            <span className="capitalize text-indigo-300 font-semibold">{plannerType}</span>
-          </Badge>
+          {/* Quick Inspector Button if handler provided */}
+          {openInspector && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openInspector}
+              className="text-xs h-7 px-2.5 gap-1.5 font-mono text-muted-foreground hover:text-foreground"
+            >
+              <Terminal className="w-3.5 h-3.5 text-blue-600" />
+              <span>Inspector</span>
+            </Button>
+          )}
         </div>
       </div>
     </header>

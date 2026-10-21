@@ -8,6 +8,7 @@ import { DailyMissionView } from '@/components/DailyMissionView';
 import { TaskBoard } from '@/components/TaskBoard';
 import { ToolExecutionHistory } from '@/components/ToolExecutionHistory';
 import { SettingsView } from '@/components/SettingsView';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { McpToolSchema, NavTab, Task, TraceItem } from '@/lib/types';
 
 export default function Home() {
@@ -19,6 +20,7 @@ export default function Home() {
   const [isMcpConnected, setIsMcpConnected] = useState<boolean>(false);
   const [plannerType, setPlannerType] = useState<'rule-based' | 'bedrock'>('rule-based');
   const [ambiguousCandidates, setAmbiguousCandidates] = useState<Task[] | undefined>(undefined);
+  const [isInspectorDrawerOpen, setIsInspectorDrawerOpen] = useState<boolean>(false);
 
   // Cold Start: initialize, tools/list, and list_tasks
   const runColdStart = async () => {
@@ -163,13 +165,15 @@ export default function Home() {
     }
   };
 
+  const openTasksCount = tasks.filter((t) => t.status === 'open').length;
+
   return (
-    <div className="min-h-screen flex bg-background text-foreground selection:bg-cyan-500 selection:text-slate-950">
-      {/* Premium Sidebar Navigation */}
+    <div className="min-h-screen flex bg-background text-foreground">
+      {/* Editorial Compact Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        openTasksCount={tasks.filter((t) => t.status === 'open').length}
+        openTasksCount={openTasksCount}
         totalTasksCount={tasks.length}
         isMcpConnected={isMcpConnected}
       />
@@ -180,6 +184,8 @@ export default function Home() {
           isMcpConnected={isMcpConnected}
           plannerType={plannerType}
           taskCount={tasks.length}
+          openInspector={() => setIsInspectorDrawerOpen(true)}
+          openCount={openTasksCount}
         />
 
         <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 lg:p-8">
@@ -229,6 +235,26 @@ export default function Home() {
           )}
         </main>
       </div>
+
+      {/* Slide-out MCP Protocol Inspector Drawer (Accessible Sheet) */}
+      <Sheet open={isInspectorDrawerOpen} onOpenChange={setIsInspectorDrawerOpen}>
+        <SheetContent side="right" className="max-w-xl">
+          <SheetHeader>
+            <SheetTitle>MCP Protocol Inspector</SheetTitle>
+            <SheetDescription>
+              Live JSON-RPC 2.0 frames recorded over Streamable HTTP.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto mt-2">
+            <ToolExecutionHistory
+              traces={traces}
+              discoveredTools={discoveredTools}
+              onRefreshTools={handleRefreshTools}
+              isLoading={isLoading}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

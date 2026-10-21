@@ -7,14 +7,11 @@ import {
   CheckSquare,
   Terminal,
   Settings,
-  Sparkles,
-  Radio,
-  Database,
-  ChevronRight,
   ShieldCheck,
+  ChevronRight,
 } from 'lucide-react';
 import { NavTab } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -36,134 +33,112 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'workspace' as NavTab,
       label: 'Workspace',
       icon: LayoutDashboard,
-      description: 'Overview & Quick Input',
+      badge: openTasksCount > 0 ? `${openTasksCount}` : undefined,
     },
     {
       id: 'mission' as NavTab,
       label: 'Daily Mission',
       icon: Target,
-      badge: 'Signature',
-      description: 'AI Autonomous Planner',
+      badge: 'AI Plan',
     },
     {
       id: 'tasks' as NavTab,
       label: 'Task Board',
       icon: CheckSquare,
-      badge: `${openTasksCount}`,
-      description: 'Kanban & Priority Grid',
+      badge: `${totalTasksCount}`,
     },
     {
       id: 'inspector' as NavTab,
       label: 'MCP Inspector',
       icon: Terminal,
-      description: 'JSON-RPC 2.0 Protocol Log',
+      badge: 'Live',
     },
     {
       id: 'settings' as NavTab,
       label: 'Settings',
       icon: Settings,
-      description: 'Diagnostics & Audio',
     },
   ];
 
   return (
-    <aside className="w-64 border-r border-border bg-card/90 flex flex-col justify-between h-screen sticky top-0 select-none shadow-sm z-30">
-      <div>
-        {/* Brand Header */}
-        <div className="p-4 border-b border-border flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-1.5">
-              <span className="font-bold text-sm tracking-tight text-foreground truncate">
-                TaskPilot AI
-              </span>
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isMcpConnected ? 'bg-emerald-400' : 'bg-rose-400'
-                }`}
-                title={isMcpConnected ? 'MCP Server Connected' : 'MCP Disconnected'}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground truncate">
-              Alexa+ Voice & MCP Workspace
-            </p>
-          </div>
+    <aside className="w-56 border-r border-border bg-[#f8f8f6] dark:bg-stone-900 flex flex-col shrink-0 min-h-screen text-foreground select-none">
+      {/* Top Brand Header */}
+      <div className="p-4 border-b border-border flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-md bg-stone-900 text-stone-50 flex items-center justify-center font-bold text-xs tracking-tight shadow-xs">
+          TP
         </div>
-
-        {/* Navigation Section */}
-        <div className="p-3 space-y-1">
-          <p className="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-            Platform
-          </p>
-
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                }`}
-              >
-                <div className="flex items-center space-x-2.5 min-w-0">
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      isActive ? 'text-primary-foreground' : 'text-muted-foreground'
-                    }`}
-                  />
-                  <div className="text-left truncate">
-                    <span className="block leading-tight">{item.label}</span>
-                  </div>
-                </div>
-
-                {item.badge && (
-                  <Badge
-                    variant={isActive ? 'outline' : 'secondary'}
-                    className={`text-[10px] px-1.5 py-0 h-4 ${
-                      isActive
-                        ? 'border-primary-foreground/40 text-primary-foreground bg-primary-foreground/10'
-                        : ''
-                    }`}
-                  >
-                    {item.badge}
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
+        <div>
+          <span className="font-semibold text-sm tracking-tight text-foreground block">
+            TaskPilot AI
+          </span>
+          <span className="text-[11px] text-muted-foreground block -mt-0.5">
+            Alexa+ Assistant
+          </span>
         </div>
       </div>
 
-      {/* Protocol Footprint Status Card */}
-      <div className="p-3 border-t border-border bg-card">
-        <div className="p-2.5 rounded-lg bg-muted/40 border border-border space-y-2 text-[11px]">
-          <div className="flex items-center justify-between font-mono">
-            <span className="text-muted-foreground flex items-center gap-1">
-              <Radio className="w-3 h-3 text-cyan-400" />
-              MCP Spec
-            </span>
-            <span className="font-semibold text-cyan-400">2025-11-25</span>
-          </div>
-          <div className="flex items-center justify-between font-mono">
-            <span className="text-muted-foreground flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              Transport
-            </span>
-            <span className="font-semibold text-emerald-400">Streamable</span>
-          </div>
-          <div className="flex items-center justify-between font-mono">
-            <span className="text-muted-foreground flex items-center gap-1">
-              <Database className="w-3 h-3 text-amber-400" />
-              SQLite WAL
-            </span>
-            <span className="font-semibold text-amber-400">{totalTasksCount} tasks</span>
-          </div>
+      {/* Navigation List */}
+      <div className="p-2 space-y-1 flex-1">
+        <div className="px-2 pt-2 pb-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Views
+        </div>
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={cn(
+                'w-full flex items-center justify-between px-2.5 py-2 rounded-md text-sm transition-all text-left outline-none',
+                isActive
+                  ? 'bg-card text-foreground font-medium shadow-xs border border-border/80'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-stone-200/50 dark:hover:bg-stone-800/50'
+              )}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Icon
+                  className={cn(
+                    'w-4 h-4 shrink-0',
+                    isActive ? 'text-blue-600' : 'text-muted-foreground'
+                  )}
+                />
+                <span className="truncate">{item.label}</span>
+              </div>
+              {item.badge && (
+                <span
+                  className={cn(
+                    'text-[10px] px-1.5 py-0.2 rounded font-mono',
+                    isActive
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'bg-stone-200/70 text-stone-600'
+                  )}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Persistent MCP & SQLite Status Footer */}
+      <div className="p-3 border-t border-border mt-auto bg-stone-100/60 dark:bg-stone-900/60 text-xs space-y-2">
+        <div className="flex items-center justify-between text-muted-foreground">
+          <span className="text-[11px] flex items-center gap-1.5 font-medium">
+            <span
+              className={cn(
+                'w-2 h-2 rounded-full inline-block',
+                isMcpConnected ? 'bg-emerald-600' : 'bg-rose-500'
+              )}
+            />
+            {isMcpConnected ? 'MCP Online' : 'MCP Offline'}
+          </span>
+          <span className="text-[10px] font-mono text-muted-foreground">2025-11-25</span>
+        </div>
+        <div className="text-[11px] text-muted-foreground/90 font-mono truncate">
+          db: data/taskpilot.db (WAL)
         </div>
       </div>
     </aside>

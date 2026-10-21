@@ -1,32 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Sparkles,
   Send,
   Mic,
   MicOff,
   CheckCircle2,
   Circle,
-  AlertTriangle,
-  Clock,
-  Layers,
-  ArrowUpRight,
-  TrendingUp,
-  Activity,
-  CheckSquare,
-  Bot,
-  User,
+  AlertCircle,
+  Calendar,
+  ArrowUp,
+  Minus,
+  ArrowDown,
   Volume2,
   VolumeX,
   Loader2,
+  Sparkles,
+  HelpCircle,
+  Clock,
+  Check,
 } from 'lucide-react';
 import { Priority, Task, TraceItem } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface WorkspaceOverviewProps {
   tasks: Task[];
@@ -49,364 +48,457 @@ export const WorkspaceOverview: React.FC<WorkspaceOverviewProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [messages, setMessages] = useState<Array<{ id: string; sender: 'user' | 'assistant'; text: string; time: string }>>([
+  const [taskTab, setTaskTab] = useState<'open' | 'done'>('open');
+  const [speechEnabled, setSpeechEnabled] = useState(false);
+  const [messages, setMessages] = useState<
+    Array<{ id: string; sender: 'user' | 'assistant'; text: string; time: string }>
+  >([
     {
       id: 'welcome',
       sender: 'assistant',
-      text: "TaskPilot AI is connected to your local MCP server. You can speak or type to add tasks with priorities and due dates, or say 'Plan my day'.",
-      time: 'Just now',
+      text: "TaskPilot AI is connected. Say or type a task like 'Submit Devpost submission tomorrow high priority', or click 'Plan my day' to organize your mission.",
+      time: 'Ready',
     },
   ]);
-  const [speechEnabled, setSpeechEnabled] = useState(true);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
-  // Real Computed Metrics
-  const openTasks = tasks.filter((t) => t.status === 'open');
-  const doneTasks = tasks.filter((t) => t.status === 'done');
-  const highPriorityOpen = openTasks.filter((t) => t.priority === 'high').length;
-  const overdueCount = openTasks.filter((t) => t.due && t.due < todayStr).length;
-  const completionRate =
-    tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
+  // Auto-scroll message list
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
-  // Speak assistant reply
-  const speak = (text: string) => {
-    if (!speechEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = 1.05;
-    window.speechSynthesis.speak(utt);
+  // Web Speech API initialization
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setInput(transcript);
+          handleSendWithUtterance(transcript);
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+    }
   };
 
-  const handleSend = async (textToSend?: string) => {
-    const text = textToSend || input;
+  const handleSendWithUtterance = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
     const userMsg = {
-      id: `u-${Date.now()}`,
+      id: `user-${Date.now()}`,
       sender: 'user' as const,
       text: text.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
+
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
 
     try {
       await onSendMessage(text.trim());
-    } catch (err) {
-      console.error(err);
+      const assistantReply = {
+        id: `assistant-${Date.now()}`,
+        sender: 'assistant' as const,
+        text: `Executed via MCP tool call. Tasks updated in SQLite.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, assistantReply]);
+
+      // If speech output enabled, speak response
+      if (speechEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(assistantReply.text);
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-err-${Date.now()}`,
+          sender: 'assistant' as const,
+          text: 'Error communicating with MCP server. Please check connection.',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    }
+  };
+
+  const handleSend = () => {
+    handleSendWithUtterance(input);
+  };
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const openTasks = tasks.filter((t) => t.status === 'open');
+  const doneTasks = tasks.filter((t) => t.status === 'done');
+  const displayedTasks = taskTab === 'open' ? openTasks : doneTasks;
+
+  const renderPriorityBadge = (priority: Priority) => {
+    switch (priority) {
+      case 'high':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2 py-0.5 rounded">
+            <ArrowUp className="w-3 h-3 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+            <span>High Priority</span>
+          </span>
+        );
+      case 'medium':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-2 py-0.5 rounded">
+            <Minus className="w-3 h-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span>Medium Priority</span>
+          </span>
+        );
+      case 'low':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-stone-700 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 rounded">
+            <ArrowDown className="w-3 h-3 text-stone-500" aria-hidden="true" />
+            <span>Low Priority</span>
+          </span>
+        );
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Page Heading & Prompt Overview */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
+      {/* Top Workspace Page Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Layers className="w-5 h-5 text-cyan-400" />
-            AI Task Workspace
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Natural language task orchestration powered by real Model Context Protocol tool calls and SQLite.
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
+            Workspace Overview
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Organize tasks and execute daily plans with conversational MCP tools.
           </p>
         </div>
-
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={onNavigateToTasks}
-            className="text-xs gap-1.5"
+            onClick={() => setSpeechEnabled(!speechEnabled)}
+            className="text-xs h-8 gap-1.5"
+            aria-label={speechEnabled ? 'Mute speech output' : 'Enable speech output'}
           >
-            <span>View Full Task Board</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            {speechEnabled ? <Volume2 className="w-3.5 h-3.5 text-blue-600" /> : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
+            <span>Voice Speech: {speechEnabled ? 'On' : 'Off'}</span>
           </Button>
         </div>
       </div>
 
-      {/* Real Statistics Cards (SectionCards Design Pattern) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Open Tasks Card */}
-        <Card className="border-border bg-card/70 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-medium">Open Tasks</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-foreground flex items-baseline justify-between">
-              <span>{openTasks.length}</span>
-              {highPriorityOpen > 0 && (
-                <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
-                  {highPriorityOpen} High Priority
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardFooter className="pt-0 text-[11px] text-muted-foreground flex items-center gap-1">
-            <span className="text-cyan-400 font-semibold">{openTasks.length}</span> active tasks in SQLite
-          </CardFooter>
-        </Card>
+      {/* Primary Grid: Tasks List (Left) + Alexa Assistant (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column (7 cols): Task Management */}
+        <section className="lg:col-span-7 space-y-4" aria-label="Task Management Area">
+          <div className="flex items-center justify-between">
+            {/* Tabs for Open / Done */}
+            <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-900 p-1 rounded-md border border-border">
+              <button
+                onClick={() => setTaskTab('open')}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  taskTab === 'open'
+                    ? 'bg-card text-foreground shadow-xs border border-border font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Open ({openTasks.length})
+              </button>
+              <button
+                onClick={() => setTaskTab('done')}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  taskTab === 'done'
+                    ? 'bg-card text-foreground shadow-xs border border-border font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Completed ({doneTasks.length})
+              </button>
+            </div>
 
-        {/* Completed Tasks Card */}
-        <Card className="border-border bg-card/70 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-medium">Completed Tasks</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-foreground flex items-baseline justify-between">
-              <span>{doneTasks.length}</span>
-              <Badge variant="secondary" className="text-[10px] py-0 px-1.5 text-emerald-300 bg-emerald-950/60">
-                {completionRate}% Rate
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardFooter className="pt-0 text-[11px] text-muted-foreground flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-emerald-400" />
-            Verified via MCP completion
-          </CardFooter>
-        </Card>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onNavigateToTasks}
+              className="text-xs text-blue-600 hover:text-blue-700 h-8"
+            >
+              View Board →
+            </Button>
+          </div>
 
-        {/* Overdue Alerts Card */}
-        <Card className="border-border bg-card/70 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-medium">Overdue Deadlines</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-foreground flex items-baseline justify-between">
-              <span className={overdueCount > 0 ? 'text-rose-400 font-bold' : ''}>
-                {overdueCount}
-              </span>
-              {overdueCount > 0 && (
-                <Badge variant="destructive" className="text-[10px] py-0 px-1.5 animate-pulse">
-                  Urgent
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardFooter className="pt-0 text-[11px] text-muted-foreground flex items-center gap-1">
-            {overdueCount > 0 ? (
-              <span className="text-rose-400 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                Due date has passed
-              </span>
-            ) : (
-              <span className="text-muted-foreground">All deadlines on track</span>
-            )}
-          </CardFooter>
-        </Card>
-
-        {/* Real MCP Protocol Execution Counter */}
-        <Card className="border-border bg-card/70 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-medium">MCP Protocol Calls</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-foreground flex items-baseline justify-between">
-              <span className="text-cyan-400 font-mono">{traces.length}</span>
-              <Badge variant="outline" className="text-[10px] font-mono text-cyan-300 border-cyan-800 bg-cyan-950/40">
-                2025-11-25
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardFooter className="pt-0 text-[11px] text-muted-foreground flex items-center gap-1">
-            <Activity className="w-3 h-3 text-cyan-400" />
-            Streamable HTTP JSON-RPC 2.0
-          </CardFooter>
-        </Card>
-      </div>
-
-      {/* Prominent Command Input Bar */}
-      <Card className="border-border bg-card/90 shadow-lg">
-        <CardContent className="p-4 space-y-3">
+          {/* Quick Task Input Field */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-card p-1.5 rounded-md border border-border shadow-xs"
           >
-            <div className="relative flex-1">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type or speak a task... (e.g. 'Remind me to submit Devpost tomorrow high priority')"
-                className="bg-background pr-10 text-sm h-11"
-                disabled={isLoading}
-              />
-            </div>
-
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Add a task e.g. 'Finish report tomorrow high priority'..."
+              className="border-0 shadow-none focus-visible:ring-0 text-sm h-9 bg-transparent"
+              disabled={isLoading}
+            />
             <Button
               type="submit"
+              size="sm"
               disabled={!input.trim() || isLoading}
-              className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold h-11 px-5 shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3 shrink-0"
             >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-1.5" />
-                  Execute
-                </>
-              )}
+              Add Task
             </Button>
           </form>
 
-          {/* Quick Suggested Commands */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[11px] text-muted-foreground mr-1">Quick Suggestions:</span>
-            {['Plan my day', 'Remind me to submit Devpost tomorrow high priority', "What's on my list?", 'Done with Devpost'].map(
-              (prompt) => (
-                <Badge
-                  key={prompt}
-                  variant="outline"
-                  onClick={() => handleSend(prompt)}
-                  className="cursor-pointer text-[11px] py-0.5 px-2 hover:bg-accent transition-all font-normal"
-                >
-                  {prompt}
-                </Badge>
-              )
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Two Column Grid: Active Tasks & AI Chat Stream */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Active Open Tasks List */}
-        <Card className="border-border bg-card shadow-md flex flex-col h-[520px]">
-          <CardHeader className="border-b border-border pb-3 bg-muted/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 text-cyan-400" />
-                  Active Tasks ({openTasks.length})
-                </CardTitle>
-                <CardDescription className="text-[11px]">
-                  Real-time synchronization with local SQLite database
-                </CardDescription>
+          {/* Ambiguous Candidates Disambiguation Callout */}
+          {ambiguousCandidates && ambiguousCandidates.length > 0 && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-md space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                <HelpCircle className="w-4 h-4" />
+                <span>Multiple tasks matched. Please select which task you meant:</span>
               </div>
-              <Button variant="ghost" size="sm" onClick={onNavigateToTasks} className="text-xs h-7">
-                See all
-              </Button>
+              <div className="space-y-1.5 pl-6">
+                {ambiguousCandidates.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    onClick={() => onCompleteTask(candidate.id)}
+                    className="block w-full text-left text-xs p-1.5 rounded hover:bg-amber-100/70 dark:hover:bg-amber-900/50 text-foreground"
+                  >
+                    #{candidate.id}: <span className="font-medium">{candidate.title}</span> (Due: {candidate.due || 'None'})
+                  </button>
+                ))}
+              </div>
             </div>
-          </CardHeader>
+          )}
 
-          <CardContent className="flex-1 overflow-y-auto p-3 space-y-2">
-            {openTasks.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
-                <CheckSquare className="w-8 h-8 mb-2 stroke-[1.5]" />
-                <p className="text-sm font-medium text-foreground">No open tasks</p>
-                <p className="text-xs mt-1">Try saying "Plan my day" or adding a task above.</p>
+          {/* Task List Items */}
+          <div className="space-y-2">
+            {displayedTasks.length === 0 ? (
+              <div className="p-8 text-center bg-card rounded-md border border-dashed border-border space-y-2">
+                <Clock className="w-8 h-8 text-muted-foreground mx-auto stroke-1" />
+                <p className="text-sm font-medium text-foreground">
+                  {taskTab === 'open' ? 'No open tasks on the board' : 'No completed tasks yet'}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  {taskTab === 'open'
+                    ? 'Add a new task using the input bar above, or ask the Alexa+ assistant to plan your schedule.'
+                    : 'Tasks completed through voice, the board, or the assistant will be archived here.'}
+                </p>
               </div>
             ) : (
-              openTasks.slice(0, 8).map((task) => {
-                const isOverdue = task.due && task.due < todayStr;
+              displayedTasks.map((task) => {
+                const isOverdue = task.status === 'open' && task.due && task.due < todayStr;
+                const isDone = task.status === 'done';
+
                 return (
                   <div
                     key={task.id}
-                    className="p-3 rounded-lg bg-muted/30 border border-border hover:bg-muted/60 transition-all flex items-start justify-between gap-3 group"
+                    className={`group flex items-start gap-3 p-3.5 rounded-md border transition-all ${
+                      isDone
+                        ? 'bg-stone-50/60 dark:bg-stone-900/40 border-border opacity-70'
+                        : isOverdue
+                        ? 'bg-rose-50/30 border-rose-200 dark:border-rose-900/60'
+                        : 'bg-card border-border hover:border-stone-300 dark:hover:border-stone-700 shadow-2xs'
+                    }`}
                   >
-                    <div className="flex items-start space-x-2.5 flex-1 min-w-0">
-                      <button
-                        onClick={() => onCompleteTask(task.id)}
-                        disabled={isLoading}
-                        title="Complete task via MCP complete_task"
-                        className="mt-0.5 text-muted-foreground hover:text-cyan-400 transition-colors"
-                      >
-                        <Circle className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                      </button>
+                    {/* Accessible Completion Checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => !isDone && onCompleteTask(task.id)}
+                      disabled={isDone || isLoading}
+                      aria-label={`Mark task "${task.title}" as complete`}
+                      className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors focus:ring-2 focus:ring-blue-600 focus:outline-hidden ${
+                        isDone
+                          ? 'bg-emerald-600 border-emerald-600 text-white cursor-default'
+                          : 'border-stone-300 dark:border-stone-600 hover:border-blue-600 hover:bg-blue-50/50'
+                      }`}
+                    >
+                      {isDone && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                    </button>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-1.5">
-                          <span className="text-[11px] font-mono text-muted-foreground">#{task.id}</span>
-                          <span className="text-xs font-medium text-foreground truncate">{task.title}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge
-                            variant={
-                              task.priority === 'high'
-                                ? 'destructive'
-                                : task.priority === 'medium'
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                            className="text-[9px] uppercase font-bold py-0 px-1"
-                          >
-                            [{task.priority}]
-                          </Badge>
-                          {task.due && (
-                            <span
-                              className={`text-[10px] flex items-center gap-1 ${
-                                isOverdue ? 'text-rose-400 font-semibold' : 'text-muted-foreground'
-                              }`}
-                            >
-                              <Clock className="w-3 h-3" />
-                              {isOverdue ? `Overdue: ${task.due}` : task.due}
-                            </span>
-                          )}
-                        </div>
+                    {/* Task Metadata */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`text-sm font-medium ${
+                            isDone ? 'line-through text-muted-foreground' : 'text-foreground'
+                          }`}
+                        >
+                          {task.title}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {/* Priority with text label + icon */}
+                        {renderPriorityBadge(task.priority)}
+
+                        {/* Due Date Chip */}
+                        {task.due && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded border border-border">
+                            <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+                            <span>Due: {task.due}</span>
+                          </span>
+                        )}
+
+                        {/* Overdue Warning with icon + text */}
+                        {isOverdue && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-100/70 dark:bg-rose-950/60 px-2 py-0.5 rounded border border-rose-200">
+                            <AlertCircle className="w-3 h-3 text-rose-600" aria-hidden="true" />
+                            <span>Overdue</span>
+                          </span>
+                        )}
                       </div>
                     </div>
+
+                    <span className="text-[11px] font-mono text-muted-foreground shrink-0">
+                      #{task.id}
+                    </span>
                   </div>
                 );
               })
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        {/* Right: AI Assistant Conversational Log */}
-        <Card className="border-border bg-card shadow-md flex flex-col h-[520px]">
-          <CardHeader className="border-b border-border pb-3 bg-muted/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Avatar className="w-6 h-6 border border-cyan-500/40 bg-cyan-500/20 text-cyan-400">
-                  <AvatarFallback className="bg-transparent text-cyan-400 text-xs font-bold">
-                    A+
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                    Alexa+ Assistant
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                  </CardTitle>
-                </div>
-              </div>
-
-              <Button
-                variant={speechEnabled ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setSpeechEnabled(!speechEnabled)}
-                className="w-7 h-7 text-xs"
-                title={speechEnabled ? 'Mute audio' : 'Enable voice'}
-              >
-                {speechEnabled ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
-              </Button>
+        {/* Right Column (5 cols): Alexa+ Assistant Panel */}
+        <section
+          className="lg:col-span-5 bg-card rounded-md border border-border shadow-xs flex flex-col h-[580px]"
+          aria-label="Alexa+ Assistant Conversation"
+        >
+          {/* Assistant Header */}
+          <div className="p-3.5 border-b border-border flex items-center justify-between bg-stone-50/60 dark:bg-stone-900/60">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+              <h3 className="text-sm font-semibold text-foreground">
+                Alexa+ Assistant
+              </h3>
             </div>
-          </CardHeader>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              MCP Tools Active
+            </span>
+          </div>
 
-          <CardContent className="flex-1 overflow-y-auto p-3 space-y-3">
-            {messages.map((m) => (
+          {/* Messages Thread (Accessible Live Region) */}
+          <div
+            className="flex-1 p-4 overflow-y-auto space-y-3"
+            role="log"
+            aria-live="polite"
+            aria-atomic="false"
+          >
+            {messages.map((msg) => (
               <div
-                key={m.id}
-                className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
+                key={msg.id}
+                className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
               >
-                <div className="flex items-center space-x-1 mb-1 px-1 text-[10px] text-muted-foreground">
-                  <span>{m.sender === 'user' ? 'You' : 'Alexa+'}</span>
-                  <span>•</span>
-                  <span>{m.time}</span>
-                </div>
                 <div
-                  className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                    m.sender === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted/70 text-foreground border border-border'
+                  className={`max-w-[88%] rounded-md p-3 text-sm leading-relaxed ${
+                    msg.sender === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-xs'
+                      : 'bg-stone-100 dark:bg-stone-800 text-foreground border border-border/80 rounded-bl-xs'
                   }`}
                 >
-                  <p>{m.text}</p>
+                  <p>{msg.text}</p>
                 </div>
+                <span className="text-[10px] text-muted-foreground px-1 mt-1">
+                  {msg.time}
+                </span>
               </div>
             ))}
 
             {isLoading && (
-              <div className="flex items-center space-x-2 text-xs text-muted-foreground p-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                <span>Executing MCP tool calls...</span>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-stone-100 dark:bg-stone-800 p-2.5 rounded-md border border-border w-fit animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <span>Planning & executing MCP tool call...</span>
               </div>
             )}
-          </CardContent>
-        </Card>
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Quick Suggested Prompts */}
+          <div className="px-3 py-2 border-t border-border bg-stone-50/30 dark:bg-stone-900/30 space-y-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground block">
+              Suggested Prompts:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Plan my day',
+                'Help me organize my evening',
+                'Add: Submit assignment tomorrow high priority',
+                'What tasks are open?',
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => handleSendWithUtterance(suggestion)}
+                  disabled={isLoading}
+                  className="text-xs px-2 py-1 rounded bg-stone-100 dark:bg-stone-800 hover:bg-stone-200/80 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-border text-left transition-colors"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Composer */}
+          <div className="p-3 border-t border-border bg-card">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              className="flex items-center gap-2"
+            >
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask Alexa+ or enter a task command..."
+                className="text-sm h-9 flex-1"
+                disabled={isLoading}
+              />
+              {/* Optional Voice Input Button */}
+              {recognitionRef.current && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleListening}
+                  className={`h-9 px-2.5 ${isListening ? 'border-rose-500 text-rose-600 bg-rose-50' : ''}`}
+                  aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                >
+                  {isListening ? <MicOff className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
+                </Button>
+              )}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!input.trim() || isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-3"
+                aria-label="Send message"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
+          </div>
+        </section>
       </div>
     </div>
   );

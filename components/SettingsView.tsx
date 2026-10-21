@@ -1,9 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Settings, ShieldCheck, Database, Radio, Cpu, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Settings,
+  ShieldCheck,
+  Database,
+  Radio,
+  Cpu,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 interface SettingsViewProps {
@@ -45,110 +53,82 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="border-b border-border pb-5">
-        <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <Settings className="w-5 h-5 text-cyan-400" />
-          System Settings & MCP Architecture
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">
+      <div className="border-b border-border pb-4">
+        <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          Settings & Diagnostics
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Inspect protocol negotiation status, local storage configuration, and runtime environment.
         </p>
       </div>
 
       {/* Connectivity & Diagnostic Card */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="pb-3 border-b border-border bg-muted/20">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Radio className="w-4 h-4 text-cyan-400" />
-              MCP Server Connection Status
-            </CardTitle>
+      <Card className="border border-border bg-card shadow-xs">
+        <CardHeader className="pb-3 border-b border-border bg-stone-50/50 dark:bg-stone-900/50">
+          <CardTitle className="text-sm font-semibold flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              MCP Server Health Check
+            </span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleTestConnection}
               disabled={testingConnection}
-              className="text-xs h-7 gap-1.5"
+              className="h-8 text-xs gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testingConnection ? 'animate-spin' : ''}`} />
-              Test MCP Health
+              <span>Test Connection</span>
             </Button>
-          </div>
+          </CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            Validates end-to-end Streamable HTTP handshake on POST /mcp and GET /health
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
-              <span className="text-muted-foreground block text-[11px]">Server Endpoint</span>
-              <span className="font-mono font-semibold text-foreground">http://127.0.0.1:3333/mcp</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-md border border-border">
+              <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider block">
+                Transport
+              </span>
+              <span className="text-sm font-bold text-foreground">
+                Streamable HTTP
+              </span>
+              <span className="text-[11px] text-muted-foreground block mt-0.5">
+                Stateless per-request JSON
+              </span>
             </div>
-            <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
-              <span className="text-muted-foreground block text-[11px]">Protocol Specification</span>
-              <span className="font-mono font-semibold text-cyan-400">2025-11-25 (Streamable HTTP)</span>
+
+            <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-md border border-border">
+              <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider block">
+                Protocol Version
+              </span>
+              <span className="text-sm font-bold text-blue-600 font-mono">
+                2025-11-25
+              </span>
+              <span className="text-[11px] text-muted-foreground block mt-0.5">
+                Model Context Protocol
+              </span>
             </div>
-            <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
-              <span className="text-muted-foreground block text-[11px]">Database Engine</span>
-              <span className="font-mono font-semibold text-amber-400">SQLite (WAL Journal Mode)</span>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
-              <span className="text-muted-foreground block text-[11px]">Active Task Store</span>
-              <span className="font-mono font-semibold text-foreground">{taskCount} tasks in database</span>
+
+            <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-md border border-border">
+              <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider block">
+                Database Store
+              </span>
+              <span className="text-sm font-bold text-foreground">
+                SQLite 3 (WAL)
+              </span>
+              <span className="text-[11px] text-muted-foreground block mt-0.5">
+                {taskCount} tasks recorded
+              </span>
             </div>
           </div>
 
           {statusMessage && (
-            <div className="p-3 rounded-lg bg-cyan-950/40 border border-cyan-800 text-xs text-cyan-200">
+            <div className="p-3 bg-stone-100 dark:bg-stone-800 rounded-md text-xs font-mono text-foreground border border-border">
               {statusMessage}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Security & DNS Rebinding */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="pb-3 border-b border-border bg-muted/20">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            Security & Origin Enforcement
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Protection against DNS rebinding and unauthorized browser requests.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 space-y-2 text-xs text-muted-foreground">
-          <p>
-            • The self-hosted MCP server binds strictly to <code className="text-foreground">127.0.0.1:3333</code>.
-          </p>
-          <p>
-            • Untrusted <code className="text-foreground">Origin</code> headers are rejected with <code className="text-rose-400">403 Forbidden</code>.
-          </p>
-          <p>
-            • All SQL queries utilize prepared parameterized statements to eliminate SQL injection vectors.
-          </p>
-          <p>
-            • Database files (<code className="text-foreground">data/*.db</code>) and <code className="text-foreground">.env.local</code> are excluded from source control.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* AI Planner Mode */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="pb-3 border-b border-border bg-muted/20">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-indigo-400" />
-            Active AI Planner
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 space-y-2 text-xs">
-          <div className="flex items-center space-x-2">
-            <Badge variant="secondary" className="capitalize text-xs">
-              {plannerType} Planner
-            </Badge>
-            <span className="text-muted-foreground">
-              {plannerType === 'bedrock'
-                ? 'Using AWS Bedrock Converse API with discovered tool schemas.'
-                : '100% Offline deterministic NLP engine (zero API keys required, zero latency overhead).'}
-            </span>
-          </div>
         </CardContent>
       </Card>
     </div>

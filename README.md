@@ -212,6 +212,13 @@ For complete step-by-step instructions, see the **[Production Deployment Guide (
 
 ---
 
-## 📜 License
+## 📜 License & Credits
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+### Attribution & Credits
+The UI visual shell adapts design patterns and primitives from the **[shadcn/ui](https://github.com/shadcn-ui/ui)** repository (MIT License, Copyright (c) 2023 shadcn):
+- **Components Adapted**: `Badge`, `Button`, `Card`, `Tabs`, `Input`, `Sheet`, `Skeleton`, `DropdownMenu`, `Avatar`.
+- **Layout Shell**: Compact editorial sidebar, header status bar, and accessible dialog/sheet drawer.
+- **Styling Architecture**: Light editorial theme using CSS variables (`--background: 40 20% 98.5%`, `--foreground: 24 10% 12%`, `--primary: 221.2 83.2% 53.3%`), warm charcoal text, subtle stone borders (`#e7e5e4`), and restrained radii.
+- **Backend & Data**: Zero template mock data or ORM copied. 100% of state is managed by the native TaskPilot SQLite WAL database and Model Context Protocol Streamable HTTP server.
