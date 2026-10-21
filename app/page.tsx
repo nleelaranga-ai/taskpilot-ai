@@ -32,14 +32,12 @@ export default function Home() {
       // 1. Health check & MCP initialize
       try {
         const healthRes = await fetch('/api/health');
-        if (healthRes.ok) {
-          const healthData = await healthRes.json();
-          if (healthData.status === 'ok' || healthData.mcp?.status === 'ok') {
-            connected = true;
-          }
-          if (healthData.trace) {
-            initialTraces.push(healthData.trace);
-          }
+        const healthData = await healthRes.json();
+        if (healthData.status === 'ok' || healthData.mcp?.status === 'ok') {
+          connected = true;
+        }
+        if (healthData.trace) {
+          initialTraces.push(healthData.trace);
         }
       } catch (e) {
         console.warn('Health check error:', e);
@@ -48,16 +46,18 @@ export default function Home() {
       // 2. Discover MCP tools via tools/list
       try {
         const toolsRes = await fetch('/api/tools');
+        const toolsData = await toolsRes.json();
+        if (toolsData.trace) {
+          initialTraces.push(toolsData.trace);
+        }
         if (toolsRes.ok) {
-          const toolsData = await toolsRes.json();
           const tools = toolsData.tools || [];
           setDiscoveredTools(tools);
           if (tools.length > 0) {
             connected = true;
           }
-          if (toolsData.trace) {
-            initialTraces.push(toolsData.trace);
-          }
+        } else {
+          connected = false;
         }
       } catch (e) {
         console.warn('Tools check error:', e);
@@ -66,15 +66,17 @@ export default function Home() {
       // 3. Initial list of tasks from MCP server (always query 'all' for complete board state)
       try {
         const tasksRes = await fetch('/api/tasks?status=all');
+        const tasksData = await tasksRes.json();
+        if (tasksData.trace) {
+          initialTraces.push(tasksData.trace);
+        }
         if (tasksRes.ok) {
-          const tasksData = await tasksRes.json();
           setTasks(tasksData.tasks || []);
           if (Array.isArray(tasksData.tasks)) {
             connected = true;
           }
-          if (tasksData.trace) {
-            initialTraces.push(tasksData.trace);
-          }
+        } else {
+          connected = false;
         }
       } catch (e) {
         console.warn('Tasks check error:', e);

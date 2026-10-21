@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { httpServer, PORT, HOST } from '../mcp-server/server.mjs';
 import { closeDb, getDb } from '../mcp-server/db.mjs';
-import { mcpClient } from '../lib/mcp-client';
+import { getMcpErrorMessage, getMcpServerUrl, mcpClient, normalizeMcpServerUrl } from '../lib/mcp-client';
 
 const TEST_DB = path.join(process.cwd(), 'data', 'test-api-e2e.db');
 process.env.TASKPILOT_DB = TEST_DB;
@@ -14,6 +14,45 @@ if (fs.existsSync(TEST_DB)) {
 
 async function runApiE2eTests() {
   console.log('🧪 [API & Transport Test Suite] Testing StreamableHTTPClientTransport Integration...');
+
+  assert.strictEqual(
+    normalizeMcpServerUrl('taskpilot-mcp-server.onrender.com'),
+    'https://taskpilot-mcp-server.onrender.com/mcp'
+  );
+  assert.strictEqual(
+    normalizeMcpServerUrl('http://127.0.0.1:3334/mcp'),
+    'http://127.0.0.1:3334/mcp'
+  );
+  assert.match(
+    getMcpErrorMessage(new Error('Streamable HTTP error: 405 Method Not Allowed <!DOCTYPE html><html></html>')),
+    /TASKPILOT_MCP_URL must point to the MCP server/
+  );
+  const savedEnvironment = {
+    TASKPILOT_MCP_URL: process.env.TASKPILOT_MCP_URL,
+    MCP_SERVER_URL: process.env.MCP_SERVER_URL,
+    VERCEL: process.env.VERCEL,
+    VERCEL_URL: process.env.VERCEL_URL,
+    RENDER: process.env.RENDER,
+    RENDER_EXTERNAL_HOSTNAME: process.env.RENDER_EXTERNAL_HOSTNAME,
+  };
+  try {
+    process.env.TASKPILOT_MCP_URL = 'https://taskpilot-web.vercel.app/mcp';
+    process.env.VERCEL = '1';
+    process.env.VERCEL_URL = 'taskpilot-web.vercel.app';
+    assert.throws(getMcpServerUrl, /points to the web app/);
+    delete process.env.TASKPILOT_MCP_URL;
+    delete process.env.MCP_SERVER_URL;
+    assert.throws(getMcpServerUrl, /Set TASKPILOT_MCP_URL/);
+  } finally {
+    for (const [key, value] of Object.entries(savedEnvironment)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+  console.log('✅ 0. MCP endpoint URLs and frontend-405 diagnostics are normalized');
 
   await new Promise((resolve) => httpServer.listen(PORT, HOST, resolve));
 

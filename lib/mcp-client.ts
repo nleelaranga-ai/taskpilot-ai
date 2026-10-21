@@ -2,16 +2,61 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { McpToolSchema, Task, TraceItem } from './types';
 
-const MCP_SERVER_URL = process.env.TASKPILOT_MCP_URL || process.env.MCP_SERVER_URL || 'http://127.0.0.1:3333/mcp';
+const DEFAULT_MCP_SERVER_URL = 'http://127.0.0.1:3333/mcp';
 const PROTOCOL_VERSION = '2025-11-25';
 
 let rpcCounter = 1;
 
-export class TaskPilotMcpClient {
-  private serverUrl: string;
+export function normalizeMcpServerUrl(value: string): string {
+  const trimmedValue = value.trim();
+  const url = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`);
 
-  constructor(serverUrl: string = MCP_SERVER_URL) {
-    this.serverUrl = serverUrl;
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('MCP server URL must use HTTP or HTTPS.');
+  }
+
+  if (url.pathname === '/') {
+    url.pathname = '/mcp';
+  }
+
+  return url.toString();
+}
+
+export function getMcpServerUrl(): string {
+  const configuredUrl = process.env.TASKPILOT_MCP_URL || process.env.MCP_SERVER_URL;
+  const isHosted = Boolean(process.env.VERCEL || process.env.RENDER);
+
+  if (!configuredUrl && isHosted) {
+    throw new Error('Set TASKPILOT_MCP_URL to the MCP service URL ending in /mcp for hosted deployments.');
+  }
+
+  const serverUrl = normalizeMcpServerUrl(configuredUrl || DEFAULT_MCP_SERVER_URL);
+  const hostedAppName = process.env.VERCEL_URL || process.env.RENDER_EXTERNAL_HOSTNAME;
+  if (hostedAppName) {
+    const appHost = new URL(`https://${hostedAppName}`).hostname;
+    if (new URL(serverUrl).hostname === appHost) {
+      throw new Error('TASKPILOT_MCP_URL points to the web app. Set it to the separate MCP service URL ending in /mcp.');
+    }
+  }
+
+  return serverUrl;
+}
+
+export function getMcpErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/<(?:!doctype html|html)\b/i.test(message) && /\b405\b|method not allowed/i.test(message)) {
+    return 'The MCP endpoint returned a Next.js 405 HTML page. TASKPILOT_MCP_URL must point to the MCP server, not the web app, and end in /mcp.';
+  }
+
+  return message;
+}
+
+export class TaskPilotMcpClient {
+  private serverUrl?: string;
+
+  constructor(serverUrl?: string) {
+    this.serverUrl = serverUrl ? normalizeMcpServerUrl(serverUrl) : undefined;
   }
 
   /**
@@ -22,7 +67,7 @@ export class TaskPilotMcpClient {
     transport: StreamableHTTPClientTransport;
   }> {
     const origin = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl), {
+    const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl || getMcpServerUrl()), {
       requestInit: {
         headers: {
           'Origin': origin,
@@ -68,8 +113,8 @@ export class TaskPilotMcpClient {
         capabilities: client.getServerCapabilities(),
       };
       await transport.close();
-    } catch (err: any) {
-      responseData = { error: { message: err.message } };
+    } catch (err: unknown) {
+      responseData = { error: { message: getMcpErrorMessage(err) } };
       ok = false;
     }
 
@@ -112,8 +157,8 @@ export class TaskPilotMcpClient {
       ok = true;
       responseData = { tools, count: tools.length };
       await transport.close();
-    } catch (err: any) {
-      responseData = { error: { message: err.message } };
+    } catch (err: unknown) {
+      responseData = { error: { message: getMcpErrorMessage(err) } };
       ok = false;
     }
 
@@ -170,8 +215,8 @@ export class TaskPilotMcpClient {
       }
 
       await transport.close();
-    } catch (err: any) {
-      resultPayload = { isError: true, message: err.message };
+    } catch (err: unknown) {
+      resultPayload = { isError: true, message: getMcpErrorMessage(err) };
       isError = true;
       ok = false;
     }

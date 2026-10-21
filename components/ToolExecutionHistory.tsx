@@ -38,6 +38,13 @@ export const ToolExecutionHistory: React.FC<ToolExecutionHistoryProps> = ({
     setExpandedTraceId((prev) => (prev === id ? null : id));
   };
 
+  const latestFailedTrace = traces.find((trace) => !trace.ok);
+  const traceError = latestFailedTrace?.response.error;
+  const connectionError =
+    traceError && typeof traceError === 'object' && 'message' in traceError
+      ? String(traceError.message)
+      : null;
+
   const copyPayload = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -132,9 +139,11 @@ export const ToolExecutionHistory: React.FC<ToolExecutionHistoryProps> = ({
             )}
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            The web client is attempting to reach the Streamable HTTP MCP server on port <code className="font-mono text-foreground font-semibold">3333</code>.
-            Run <code className="font-mono text-foreground bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded">npm run dev</code> to start both services together, or verify <code className="font-mono text-foreground">TASKPILOT_MCP_URL</code> if deployed on Render/Vercel.
+            Verify <code className="font-mono text-foreground">TASKPILOT_MCP_URL</code> points to the MCP server and ends in <code className="font-mono text-foreground">/mcp</code>. For local development, run <code className="font-mono text-foreground bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded">npm run dev</code> to start both services.
           </p>
+          {connectionError && (
+            <p className="text-xs text-rose-700 dark:text-rose-300 break-words">{connectionError}</p>
+          )}
         </div>
       )}
 

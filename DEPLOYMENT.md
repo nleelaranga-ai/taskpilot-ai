@@ -27,7 +27,9 @@ This guide walks through deploying the **TaskPilot AI** ecosystem into productio
                                       └─────────────────────────────────────────┘
 ```
 
-The Render Blueprint deploys the web app and MCP server as separate services. Its `TASKPILOT_MCP_URL` must point to the MCP service's public `/mcp` endpoint; `localhost` would point back to the web service, not the MCP server. If you rename the MCP service, update that URL in `render.yaml`.
+The Render Blueprint deploys the web app and MCP server as separate services. It derives `TASKPILOT_MCP_URL` from the MCP service's Render hostname; the app appends `/mcp` when the value is a bare hostname. `localhost` would point back to the web service, not the MCP server. If you rename the MCP service, update the service reference in `render.yaml`.
+
+For Vercel, set `TASKPILOT_MCP_URL` to the MCP service's public URL ending in `/mcp` (for example, `https://<your-mcp-service>.onrender.com/mcp`). Do not use the Vercel app URL. Verify the MCP service first by checking its `/health` endpoint for JSON containing `"status":"ok"`.
 
 ---
 
