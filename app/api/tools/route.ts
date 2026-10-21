@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { mcpClient } from '@/lib/mcp-client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const { tools, trace } = await mcpClient.listTools();

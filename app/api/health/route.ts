@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { mcpClient } from '@/lib/mcp-client';
 
+export const dynamic = 'force-dynamic';
+
 const MCP_PORT = process.env.MCP_PORT || '3333';
 const MCP_HOST = process.env.MCP_HOST || '127.0.0.1';
 
