@@ -10,6 +10,8 @@
     "dev:web": "npx next dev -p 3002",
     "build": "next build",
     "start": "next start",
+    "start:mcp": "node mcp-server/server.mjs",
+    "start:web": "next start",
     "lint": "next lint",
     "test": "node mcp-server/test-e2e.mjs && npx tsx tests/planner.test.ts && npx tsx tests/api-e2e.test.ts && npx tsx tests/data-consistency.test.ts",
     "test:mcp": "node mcp-server/test-e2e.mjs",

@@ -192,6 +192,17 @@ taskpilot-ai/
 
 ---
 
+## 🚢 Production Deployment
+
+TaskPilot AI is designed to deploy across modern cloud platforms with zero lock-in:
+- **Render**: Deploys the standalone Node.js MCP server (`POST /mcp`, `GET /health`) using [`render.yaml`](render.yaml).
+- **Vercel**: Deploys the Next.js 14 frontend and connects to the Render MCP server via `TASKPILOT_MCP_URL`.
+- **GitHub**: Complete CI/CD flow with automated build checks and test verification.
+
+For complete step-by-step instructions, see the **[Production Deployment Guide (DEPLOYMENT.md)](DEPLOYMENT.md)**.
+
+---
+
 ## 🔒 Security & Privacy
 
 - **No Secrets in Repo**: The repo contains no API keys or credentials.

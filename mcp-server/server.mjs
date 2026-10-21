@@ -4,15 +4,24 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 import { listTasks, createTask, completeTask } from './db.mjs';
 
-const PORT = parseInt(process.env.MCP_PORT || '3333', 10);
-const HOST = process.env.MCP_HOST || '127.0.0.1';
+const PORT = parseInt(process.env.PORT || process.env.MCP_PORT || '3333', 10);
+const HOST = process.env.MCP_HOST || (process.env.PORT || process.env.RENDER || process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
-// Allowed origins for DNS rebinding & drive-by browser protection
+// Configurable allowed origins with sensible defaults for local, Render, and Vercel deployments
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
+  : [];
+
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
   'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
   'http://localhost:3333',
   'http://127.0.0.1:3333',
+  ...envOrigins,
 ]);
 
 /**
@@ -116,8 +125,15 @@ export function createServerInstance() {
  * Validates request Origin header to protect against DNS rebinding.
  */
 function isOriginAllowed(origin) {
-  if (!origin) return true; // Server-to-server or curl requests
-  return ALLOWED_ORIGINS.has(origin);
+  if (!origin) return true; // Server-to-server, curl, or backend Next.js API requests
+  if (ALLOWED_ORIGINS.has(origin) || ALLOWED_ORIGINS.has('*')) return true;
+  try {
+    const hostname = new URL(origin).hostname;
+    if (hostname.endsWith('.vercel.app') || hostname.endsWith('.onrender.com') || hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+  } catch {}
+  return false;
 }
 
 const httpServer = http.createServer(async (req, res) => {

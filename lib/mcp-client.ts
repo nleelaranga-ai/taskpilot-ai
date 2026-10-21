@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { McpToolSchema, Task, TraceItem } from './types';
 
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://127.0.0.1:3333/mcp';
+const MCP_SERVER_URL = process.env.TASKPILOT_MCP_URL || process.env.MCP_SERVER_URL || 'http://127.0.0.1:3333/mcp';
 const PROTOCOL_VERSION = '2025-11-25';
 
 let rpcCounter = 1;
@@ -21,10 +21,11 @@ export class TaskPilotMcpClient {
     client: Client;
     transport: StreamableHTTPClientTransport;
   }> {
+    const origin = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl), {
       requestInit: {
         headers: {
-          'Origin': 'http://localhost:3000',
+          'Origin': origin,
         },
       },
     });

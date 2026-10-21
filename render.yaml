@@ -1,0 +1,45 @@
+# Render Blueprint Specification for TaskPilot AI
+# https://render.com/docs/blueprint-spec
+
+services:
+  # -------------------------------------------------------------
+  # 1. Standalone Model Context Protocol (MCP) Server
+  # Exposes Streamable HTTP on POST /mcp and GET /health
+  # -------------------------------------------------------------
+  - type: web
+    name: taskpilot-mcp-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:mcp
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MCP_HOST
+        value: 0.0.0.0
+      - key: TASKPILOT_DB
+        value: data/taskpilot.db
+      - key: ALLOWED_ORIGINS
+        value: "*"
+
+  # -------------------------------------------------------------
+  # 2. Next.js Full-Stack Web Frontend (if deploying to Render)
+  # (Alternatively, deploy Next.js to Vercel via vercel.json)
+  # -------------------------------------------------------------
+  - type: web
+    name: taskpilot-web
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:web
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TASKPILOT_MCP_URL
+        # Set to your taskpilot-mcp-server onrender URL after first deploy:
+        # e.g., https://taskpilot-mcp-server.onrender.com/mcp
+        value: http://localhost:3333/mcp
