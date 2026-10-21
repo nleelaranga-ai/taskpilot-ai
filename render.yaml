@@ -40,6 +40,5 @@ services:
       - key: NODE_ENV
         value: production
       - key: TASKPILOT_MCP_URL
-        # Set to your taskpilot-mcp-server onrender URL after first deploy:
-        # e.g., https://taskpilot-mcp-server.onrender.com/mcp
-        value: http://localhost:3333/mcp
+        # The web and MCP services run in separate containers; localhost is not shared.
+        value: https://taskpilot-mcp-server.onrender.com/mcp
