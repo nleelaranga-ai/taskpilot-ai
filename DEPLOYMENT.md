@@ -27,6 +27,8 @@ This guide walks through deploying the **TaskPilot AI** ecosystem into productio
                                       └─────────────────────────────────────────┘
 ```
 
+The Render Blueprint deploys the web app and MCP server as separate services. Its `TASKPILOT_MCP_URL` must point to the MCP service's public `/mcp` endpoint; `localhost` would point back to the web service, not the MCP server. If you rename the MCP service, update that URL in `render.yaml`.
+
 ---
 
 ## Step 1: Push All Changes to GitHub
