@@ -75,7 +75,7 @@ export const ToolExecutionHistory: React.FC<ToolExecutionHistoryProps> = ({
       </div>
 
       {/* Discovered MCP Tools Schema Grid */}
-      {discoveredTools.length > 0 && (
+      {discoveredTools.length > 0 ? (
         <div className="bg-stone-50/70 dark:bg-stone-900/40 p-4 rounded-md border border-border space-y-3">
           <div className="flex items-center gap-2">
             <Wrench className="w-4 h-4 text-blue-600" />
@@ -110,6 +110,31 @@ export const ToolExecutionHistory: React.FC<ToolExecutionHistoryProps> = ({
               </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 p-4 rounded-md space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-medium text-xs">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              <span>MCP Server Disconnected</span>
+            </div>
+            {onRefreshTools && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefreshTools}
+                disabled={isLoading}
+                className="text-xs h-7 gap-1 border-amber-300 dark:border-amber-800 hover:bg-amber-100/50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Retry Connection</span>
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            The web client is attempting to reach the Streamable HTTP MCP server on port <code className="font-mono text-foreground font-semibold">3333</code>.
+            Run <code className="font-mono text-foreground bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded">npm run dev</code> to start both services together, or verify <code className="font-mono text-foreground">TASKPILOT_MCP_URL</code> if deployed on Render/Vercel.
+          </p>
         </div>
       )}
 

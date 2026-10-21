@@ -26,39 +26,62 @@ export default function Home() {
   const runColdStart = async () => {
     setIsLoading(true);
     const initialTraces: TraceItem[] = [];
+    let connected = false;
 
     try {
       // 1. Health check & MCP initialize
-      const healthRes = await fetch('/api/health');
-      if (healthRes.ok) {
-        const healthData = await healthRes.json();
-        setIsMcpConnected(true);
-        if (healthData.trace) {
-          initialTraces.push(healthData.trace);
+      try {
+        const healthRes = await fetch('/api/health');
+        if (healthRes.ok) {
+          const healthData = await healthRes.json();
+          if (healthData.status === 'ok' || healthData.mcp?.status === 'ok') {
+            connected = true;
+          }
+          if (healthData.trace) {
+            initialTraces.push(healthData.trace);
+          }
         }
+      } catch (e) {
+        console.warn('Health check error:', e);
       }
 
       // 2. Discover MCP tools via tools/list
-      const toolsRes = await fetch('/api/tools');
-      if (toolsRes.ok) {
-        const toolsData = await toolsRes.json();
-        setDiscoveredTools(toolsData.tools || []);
-        if (toolsData.trace) {
-          initialTraces.push(toolsData.trace);
+      try {
+        const toolsRes = await fetch('/api/tools');
+        if (toolsRes.ok) {
+          const toolsData = await toolsRes.json();
+          const tools = toolsData.tools || [];
+          setDiscoveredTools(tools);
+          if (tools.length > 0) {
+            connected = true;
+          }
+          if (toolsData.trace) {
+            initialTraces.push(toolsData.trace);
+          }
         }
+      } catch (e) {
+        console.warn('Tools check error:', e);
       }
 
       // 3. Initial list of tasks from MCP server (always query 'all' for complete board state)
-      const tasksRes = await fetch('/api/tasks?status=all');
-      if (tasksRes.ok) {
-        const tasksData = await tasksRes.json();
-        setTasks(tasksData.tasks || []);
-        if (tasksData.trace) {
-          initialTraces.push(tasksData.trace);
+      try {
+        const tasksRes = await fetch('/api/tasks?status=all');
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setTasks(tasksData.tasks || []);
+          if (Array.isArray(tasksData.tasks)) {
+            connected = true;
+          }
+          if (tasksData.trace) {
+            initialTraces.push(tasksData.trace);
+          }
         }
+      } catch (e) {
+        console.warn('Tasks check error:', e);
       }
 
       setTraces(initialTraces);
+      setIsMcpConnected(connected);
     } catch (err) {
       console.error('Cold start error:', err);
       setIsMcpConnected(false);
@@ -78,6 +101,7 @@ export default function Home() {
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
         setTasks(tasksData.tasks || []);
+        setIsMcpConnected(true);
         if (tasksData.trace) {
           setTraces((prev) => [tasksData.trace, ...prev]);
         }
@@ -89,6 +113,10 @@ export default function Home() {
 
   const addTraces = (newTraces: TraceItem[]) => {
     setTraces((prev) => [...newTraces, ...prev]);
+  };
+
+  const handleRefreshTools = async () => {
+    await runColdStart();
   };
 
   // Handle user utterance
@@ -144,22 +172,6 @@ export default function Home() {
       await refreshTasks();
     } catch (err) {
       console.error('Complete task error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefreshTools = async () => {
-    setIsLoading(true);
-    try {
-      const toolsRes = await fetch('/api/tools');
-      if (toolsRes.ok) {
-        const toolsData = await toolsRes.json();
-        setDiscoveredTools(toolsData.tools || []);
-        if (toolsData.trace) {
-          setTraces((prev) => [toolsData.trace, ...prev]);
-        }
-      }
     } finally {
       setIsLoading(false);
     }

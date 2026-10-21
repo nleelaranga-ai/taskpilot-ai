@@ -46,7 +46,12 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Status Badges & Quick Controls */}
         <div className="flex items-center space-x-3">
           {/* Connection Status Indicator */}
-          <div className="flex items-center space-x-2 text-xs text-muted-foreground bg-secondary/80 px-2.5 py-1 rounded-md border border-border font-medium">
+          <button
+            type="button"
+            onClick={openInspector}
+            title={isMcpConnected ? "MCP Server Connected (2025-11-25) - Click to inspect" : "MCP Disconnected - Click to open Inspector & reconnect"}
+            className="flex items-center space-x-2 text-xs text-muted-foreground bg-secondary/80 hover:bg-secondary px-2.5 py-1 rounded-md border border-border font-medium cursor-pointer transition-colors"
+          >
             <span className="flex h-2 w-2 relative">
               {isMcpConnected && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -60,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-foreground">
               {isMcpConnected ? 'MCP 2025-11-25' : 'MCP Disconnected'}
             </span>
-          </div>
+          </button>
 
           {/* Quick Inspector Button if handler provided */}
           {openInspector && (
