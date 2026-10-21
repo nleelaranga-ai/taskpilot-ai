@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from '@/components/Sidebar';
-import { Header } from '@/components/Header';
-import { WorkspaceOverview } from '@/components/WorkspaceOverview';
-import { DailyMissionView } from '@/components/DailyMissionView';
-import { TaskBoard } from '@/components/TaskBoard';
-import { ToolExecutionHistory } from '@/components/ToolExecutionHistory';
-import { SettingsView } from '@/components/SettingsView';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { McpToolSchema, NavTab, Task, TraceItem } from '@/lib/types';
+import { Sidebar } from '../components/Sidebar';
+import { Header } from '../components/Header';
+import { WorkspaceOverview } from '../components/WorkspaceOverview';
+import { DailyMissionView } from '../components/DailyMissionView';
+import { TaskBoard } from '../components/TaskBoard';
+import { ToolExecutionHistory } from '../components/ToolExecutionHistory';
+import { SettingsView } from '../components/SettingsView';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../components/ui/sheet';
+import { McpToolSchema, NavTab, Task, TraceItem } from '../lib/types';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>('workspace');
