@@ -40,5 +40,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: TASKPILOT_MCP_URL
-        # The web and MCP services run in separate containers; localhost is not shared.
-        value: https://taskpilot-mcp-server.onrender.com/mcp
+        fromService:
+          type: web
+          name: taskpilot-mcp-server
+          property: host

@@ -9,14 +9,31 @@ export async function GET(req: Request) {
     const status = (searchParams.get('status') as any) || 'all';
 
     const { tasks, count, trace } = await mcpClient.getTasks(status);
+    if (!trace.ok) {
+      const error = trace.response.error;
+      const details =
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : 'MCP list_tasks request failed.';
+      return NextResponse.json(
+        { error: 'Failed to fetch tasks', details, trace },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       tasks,
       count,
       trace,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to fetch tasks', details: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch tasks',
+        details: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
+    );
   }
 }
 
