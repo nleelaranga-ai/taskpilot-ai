@@ -212,6 +212,7 @@ export default function Home() {
               onNavigateToTasks={() => setActiveTab('tasks')}
               isLoading={isLoading}
               ambiguousCandidates={ambiguousCandidates}
+              isMcpConnected={isMcpConnected}
             />
           )}
 

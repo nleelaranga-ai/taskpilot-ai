@@ -69,25 +69,40 @@ The MCP server handles persistent Streamable HTTP connections (`2025-11-25`) and
 4. Render automatically reads `render.yaml` and sets up the `taskpilot-mcp-server` Web Service.
 5. Click **Apply**.
 
-### Option B: Manual Web Service Setup on Render
-1. Go to [https://dashboard.render.com/web/new](https://dashboard.render.com/web/new).
-2. Connect your `taskpilot-ai` repository.
-3. Configure settings:
-   - **Name**: `taskpilot-mcp-server`
-   - **Language**: `Node`
-   - **Branch**: `master` (or `main`)
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm run start:mcp`
-   - **Health Check Path**: `/health`
-   - **Plan**: Free
-4. Add Environment Variables:
+## Production Deployment on Render (Unified Single Service)
+
+TaskPilot AI includes a unified runner (`scripts/start-all.mjs`) that powers **both** the Next.js Web Frontend and the Streamable HTTP MCP Server within a single Render Web Service container.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   RENDER WEB SERVICE                        │
+│                                                             │
+│  [ Next.js 14 Web Frontend ] (Listens on Render's $PORT)    │
+│            │                                                │
+│            ▼ (Internal Loopback JSON-RPC 2.0 over HTTP)     │
+│  [ MCP Server (Streamable HTTP) ] (Listens on port 3333)    │
+│            │                                                │
+│            ▼                                                │
+│  [ SQLite Database: data/taskpilot.db (WAL Mode) ]          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Setup Instructions on Render:
+1. Go to your Render Web Service dashboard (e.g. `taskpilot-ai-geol` or new web service).
+2. Under **Settings**:
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start` (or `node scripts/start-all.mjs`)
+   - **Health Check Path**: `/api/health`
+3. Under **Environment Variables**:
    - `NODE_ENV` = `production`
-   - `MCP_HOST` = `0.0.0.0`
+   - `TASKPILOT_MCP_URL` = `http://127.0.0.1:3333/mcp`
    - `TASKPILOT_DB` = `data/taskpilot.db`
    - `ALLOWED_ORIGINS` = `*`
-5. Click **Create Web Service**.
-6. Once deployed, copy your Render service URL (e.g., `https://taskpilot-mcp-server.onrender.com`).
-   - Test it by visiting: `https://taskpilot-mcp-server.onrender.com/health` (should return JSON `{ status: "ok", protocolVersion: "2025-11-25" }`).
+4. Click **Manual Deploy** $\rightarrow$ **Deploy latest commit**.
+5. Once deployed, open your live URL (e.g. `https://taskpilot-ai-geol.onrender.com`).
+   - The top header will turn to **MCP 2025-11-25** (green pulsing dot).
+   - The sidebar will show **MCP Online**.
+   - The assistant greeting will confirm live connection to the Streamable HTTP MCP Server and SQLite WAL.
 
 ---
 

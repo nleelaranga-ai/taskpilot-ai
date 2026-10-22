@@ -3,44 +3,23 @@
 
 services:
   # -------------------------------------------------------------
-  # 1. Standalone Model Context Protocol (MCP) Server
-  # Exposes Streamable HTTP on POST /mcp and GET /health
+  # Unified Web Service (Next.js Frontend + Streamable HTTP MCP Server)
+  # Both processes run in one container over loopback (port 3333) & SQLite WAL
   # -------------------------------------------------------------
   - type: web
-    name: taskpilot-mcp-server
-    runtime: node
-    plan: free
-    buildCommand: npm install
-    startCommand: npm run start:mcp
-    healthCheckPath: /health
-    autoDeploy: true
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: MCP_HOST
-        value: 0.0.0.0
-      - key: TASKPILOT_DB
-        value: data/taskpilot.db
-      - key: ALLOWED_ORIGINS
-        value: "*"
-
-  # -------------------------------------------------------------
-  # 2. Next.js Full-Stack Web Frontend (if deploying to Render)
-  # (Alternatively, deploy Next.js to Vercel via vercel.json)
-  # -------------------------------------------------------------
-  - type: web
-    name: taskpilot-web
+    name: taskpilot-ai
     runtime: node
     plan: free
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm run start:web
+    startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: TASKPILOT_MCP_URL
-        fromService:
-          type: web
-          name: taskpilot-mcp-server
-          property: host
+        value: http://127.0.0.1:3333/mcp
+      - key: TASKPILOT_DB
+        value: data/taskpilot.db
+      - key: ALLOWED_ORIGINS
+        value: "*"

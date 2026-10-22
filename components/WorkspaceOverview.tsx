@@ -35,6 +35,7 @@ interface WorkspaceOverviewProps {
   onNavigateToTasks: () => void;
   isLoading: boolean;
   ambiguousCandidates?: Task[];
+  isMcpConnected?: boolean;
 }
 
 export const WorkspaceOverview: React.FC<WorkspaceOverviewProps> = ({
@@ -45,6 +46,7 @@ export const WorkspaceOverview: React.FC<WorkspaceOverviewProps> = ({
   onNavigateToTasks,
   isLoading,
   ambiguousCandidates,
+  isMcpConnected = false,
 }) => {
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -56,10 +58,30 @@ export const WorkspaceOverview: React.FC<WorkspaceOverviewProps> = ({
     {
       id: 'welcome',
       sender: 'assistant',
-      text: "TaskPilot AI is connected. Say or type a task like 'Submit Devpost submission tomorrow high priority', or click 'Plan my day' to organize your mission.",
-      time: 'Ready',
+      text: isMcpConnected
+        ? "TaskPilot AI is connected and listening via Streamable HTTP (protocol 2025-11-25) & SQLite WAL. What would you like to plan today?"
+        : "TaskPilot AI is connecting to the MCP Server... (Streamable HTTP 2025-11-25 & SQLite WAL). Once online, you can speak or type tasks.",
+      time: isMcpConnected ? 'Online' : 'Initializing',
     },
   ]);
+
+  // Sync welcome message dynamically when connection status changes
+  useEffect(() => {
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id === 'welcome') {
+          return {
+            ...msg,
+            text: isMcpConnected
+              ? "TaskPilot AI is connected and listening via Streamable HTTP (protocol 2025-11-25) & SQLite WAL. What would you like to plan today?"
+              : "TaskPilot AI is connecting to the MCP Server... (Streamable HTTP 2025-11-25 & SQLite WAL). Once online, you can speak or type tasks.",
+            time: isMcpConnected ? 'Online' : 'Initializing',
+          };
+        }
+        return msg;
+      })
+    );
+  }, [isMcpConnected]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
